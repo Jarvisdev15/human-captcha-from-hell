@@ -9,9 +9,11 @@ Human CAPTCHA from Hell is a chaotic, humorous take on traditional CAPTCHA verif
 
 ## 🎮 About the Project
 
-We've all had to prove we're human online. But what happens when the CAPTCHA itself becomes the problem?
+**Human CAPTCHA from Hell** is a deliberately frustrating, humorous verification game built for **What The Hack?! 2.0**.
 
-This project turns ordinary human verification into an absurd interactive experience, with increasingly annoying challenges, unpredictable interactions, and a deliberately ridiculous finale.
+The experience begins with **Trivia Hell**, where players face trivia questions before progressing through increasingly chaotic human-verification challenges. Moving options, unpredictable interactions, and a ridiculous prize reveal turn an ordinary verification process into a test of patience.
+
+The goal is simple: prove you're human. The experience? Absolutely unreasonable.
 
 ## ✨ Features
 
