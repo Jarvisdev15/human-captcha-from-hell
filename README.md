@@ -1,83 +1,101 @@
-# 👹 Human CAPTCHA from Hell
+# 🔥 TRIVIA HELL: Pick Your Poison
 
-**Team Name:** TheOnlyBot  
-**Developer:** Yuvraj Bhatia
+### A Human CAPTCHA from Hell
 
-*What if proving you're human was the most frustrating thing you've ever done?*
+*What if proving you're human online became an absolutely miserable experience?*
 
-Human CAPTCHA from Hell is a chaotic, humorous take on traditional CAPTCHA verification, built for **What The Hack?! 2.0**. What begins as a seemingly normal verification process gradually descends into madness, challenging players' patience as much as their humanity.
+**Built for What The Hack?! 2.0**
 
-## 🎮 About the Project
+**Team:** TheOnlyBot | **Developer:** Yuvraj Bhatia (solo)
 
-**Human CAPTCHA from Hell** is a deliberately frustrating, humorous verification game built for **What The Hack?! 2.0**.
+👉 **[Play it live](https://human-captcha-from-hell-reu9bvtj54cepsvjyucmsc.streamlit.app/)**
 
-The experience begins with **Trivia Hell**, where players face trivia questions before progressing through increasingly chaotic human-verification challenges. Moving options, unpredictable interactions, and a ridiculous prize reveal turn an ordinary verification process into a test of patience.
+*Turn your sound on. Click anywhere on the page first so your browser allows audio.*
 
-The goal is simple: prove you're human. The experience? Absolutely unreasonable.
+---
 
-## ✨ Features
+## The idea
 
-- 🧩 **CAPTCHA Challenges:** Interactive tasks that test whether you're human.
-- 🌀 **Chaotic Interactions:** Moving interface elements that make simple tasks unexpectedly difficult.
-- ⏳ **Patience Testing:** Challenges designed to frustrate, distract, and waste your time.
-- 😂 **Humorous Experience:** Unexpected reactions and a fake prize reveal.
-- 👹 **Finale:** One last attempt to prove your humanity.
+Trivia Hell looks like a normal quiz. It isn't. Every step is guarded by a **human-verification CAPTCHA** designed to waste your time, test your patience and make you question why you kept going.
 
-## 🛠️ Tech Stack
+The answers won't stay still, the checkboxes run away, and at the end the prize is not a prize.
 
-- Python
-- Streamlit
-- HTML, CSS and JavaScript
+## Trivia Hell: Pick Your Poison
 
-## 🚀 Getting Started
+- 10 questions on Marvel, DC, anime, gaming and pop culture
+- A 60-second countdown, with a few seconds back for each correct answer
+- **Moving answer options** that jump around the screen and dodge your cursor
+- Difficulty that adapts: answer fast and the options move faster
+- One wrong answer ends your run
 
-### Prerequisites
+## The Human CAPTCHAs from Hell
 
-- Python 3.10 or a compatible version
-- pip
+| CAPTCHA | The torture |
+|---|---|
+| 🚦 **Traffic-light name entry** | Every letter you type or delete needs its own traffic-light CAPTCHA. Pick the wrong colour and your **whole name is erased**. |
+| ☑️ **Catch the checkbox** | After every answer, an "I'm not a robot" box drifts around the screen with a 10-second timer. Miss it on a real check and your run resets to Question 1. |
+| 🎭 **Real vs fake checks** | Some checkboxes are fake: they ignore your clicks and only pass when the timer ends. They look and move exactly like the real ones. |
+| ✅ **The "final" verification** | After the quiz you need *another* human check: two clicks on a moving checkbox. "Surely this is the end." |
+| ⏳ **Fake prize reveal** | A loading bar sticks at 99%, then reveals a disapproving GIF and a sad trombone. |
 
-### Installation
+## Chaos that escalates
 
-1. Clone the repository:
+- The interface starts clean and professional, then the panels tilt a little more with every question
+- A random reaction image appears once, right before the prize
+- Different sound effects for correct answers, wrong answers and the final prank
 
-   ```bash
-   git clone https://github.com/Jarvisdev15/human-captcha-from-hell.git
-   ```
+## Run it locally
 
-2. Navigate to the project directory:
+You need Python 3.9 or newer.
 
-   ```bash
-   cd human-captcha-from-hell
-   ```
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/Jarvisdev15/human-captcha-from-hell.git
+cd human-captcha-from-hell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
 
-3. Install the dependencies:
+**macOS / Linux:**
+```bash
+git clone https://github.com/Jarvisdev15/human-captcha-from-hell.git
+cd human-captcha-from-hell
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+The app opens at http://localhost:8501.
 
-4. Run the application:
+## Project structure
 
-   ```bash
-   python -m streamlit run app.py
-   ```
+```
+human-captcha-from-hell/
+├── app.py              Streamlit app with the embedded HTML/CSS/JS game
+├── requirements.txt    Python dependencies (Streamlit 1.66.1)
+├── README.md
+├── ASSET_DATA/         Reaction images (reaction1.jpg ... reaction8.jpg)
+└── assets/             Sound effects and the disapproval GIF
+```
 
-5. Open the local URL displayed in your terminal.
+## Built with
 
-## 👤 Team
+- **Python** and **Streamlit** for the app and hosting
+- **HTML, CSS and JavaScript**, embedded in the Streamlit page, for the game logic, animations and moving elements
+- **Streamlit Community Cloud** for deployment
 
-**TheOnlyBot** is a solo project developed by **Yuvraj Bhatia**.
+## Notes
 
-## 🏆 Hackathon
+- Images and audio are embedded in the page as base64, so the first load can take a moment.
+- Browsers block audio until you interact with the page, so sounds start after your first click.
+- If the app has gone to sleep, click **"Yes, get this app back up!"** and wait a few seconds.
 
-Built for **What The Hack?! 2.0**.
+## Credits
 
-Our goal: turn a routine verification process into an unforgettable experience.
+Designed and built solo by **Yuvraj Bhatia** (team **TheOnlyBot**) for **What The Hack?! 2.0**.
 
-## 📌 Project Repository
+Memes, GIFs and sound effects belong to their original creators and are used here only for a non-commercial hackathon project.
 
-[Human CAPTCHA from Hell on GitHub](https://github.com/Jarvisdev15/human-captcha-from-hell)
-
-## 🌐 Live Demo
-
-Coming soon.
+*No mercy. No pause button. Only chaos.*
