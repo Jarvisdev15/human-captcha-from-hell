@@ -18,12 +18,29 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# Hide Streamlit chrome so the game looks like a standalone site.
+st.markdown(
+    """
+    <style>
+      #MainMenu, header, footer { visibility: hidden; height: 0; }
+      .stApp { background: #09090d; }
+      .block-container { padding: 0 !important; max-width: 100% !important; }
+      iframe { border: 0 !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
-IMAGES_DIR = BASE_DIR / "ASSET_DATA"
 
-if not IMAGES_DIR.is_dir():
-    IMAGES_DIR = BASE_DIR / "assets_data"
+# Look for the image folder, tolerating different capitalisation
+# (Linux servers are case-sensitive, Windows is not).
+IMAGES_DIR = BASE_DIR / "ASSET_DATA"
+for candidate in ("ASSET_DATA", "asset_data", "Asset_Data", "assets_data"):
+    if (BASE_DIR / candidate).is_dir():
+        IMAGES_DIR = BASE_DIR / candidate
+        break
 
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -65,9 +82,14 @@ def normalised_name(path):
 
 
 audio_files = scan_files(ASSETS_DIR, AUDIO_EXTS)
+# Audio may also live next to the images.
+for path in scan_files(IMAGES_DIR, AUDIO_EXTS):
+    if path.resolve() not in {p.resolve() for p in audio_files}:
+        audio_files.append(path)
+
 image_files = scan_files(IMAGES_DIR, IMAGE_EXTS)
 
-# If the image directory is missing or empty, also check assets/.
+# Also check assets/ for images.
 for path in scan_files(ASSETS_DIR, IMAGE_EXTS):
     if path.resolve() not in {p.resolve() for p in image_files}:
         image_files.append(path)
@@ -82,20 +104,17 @@ def find_audio(*keywords):
 
 wow_audio = find_audio("animewow", "wow")
 sad_audio = find_audio("sadtrombone", "funnysad", "sad")
-
-# Optional intro track.
-intro_audio = find_audio(
-    "intromusic", "walkthrough", "quizintro",
-    "quiztheme", "backgroundmusic"
-)
+# Optional intro track: add intro-music.mp3 to assets/ to enable it.
+intro_audio = find_audio("intromusic", "walkthrough", "quizintro", "quiztheme", "backgroundmusic")
 
 used_audio = {
-    p.resolve() for p in wow_audio + sad_audio
+    p.resolve() for p in wow_audio + sad_audio + intro_audio
 }
 
 roast_audio = [
     p for p in audio_files if p.resolve() not in used_audio
 ]
+
 
 # Prefer a GIF whose name suggests the intended disapproval reaction.
 gif_files = [p for p in image_files if p.suffix.lower() == ".gif"]
@@ -113,6 +132,7 @@ meme_path = (
     if preferred_gifs
     else gif_files[0] if gif_files else None
 )
+
 
 # Prioritise reaction1 ... reaction8, regardless of image extension.
 non_gif_images = [
@@ -133,7 +153,7 @@ def reaction_order(path):
     if match:
         return (1, int(match.group(1)), name)
 
-    return (2, name, name)
+    return (2, 0, name)
 
 
 reaction_paths = sorted(non_gif_images, key=reaction_order)[:8]
@@ -171,10 +191,7 @@ QUESTIONS = [
     {
         "category": "ANIME",
         "q": "What village does Naruto come from?",
-        "options": [
-            "Hidden Sand", "Hidden Leaf",
-            "Hidden Mist", "Hidden Cloud"
-        ],
+        "options": ["Hidden Sand", "Hidden Leaf", "Hidden Mist", "Hidden Cloud"],
         "answer": "Hidden Leaf",
     },
     {
@@ -225,8 +242,8 @@ QUESTIONS = [
 ]
 
 
-ASSETS_JSON = json.dumps(ASSETS)
-QUESTIONS_JSON = json.dumps(QUESTIONS)
+ASSETS_JSON = json.dumps(ASSETS).replace("</", "<\\/")
+QUESTIONS_JSON = json.dumps(QUESTIONS).replace("</", "<\\/")
 
 
 # ============================================================
@@ -247,6 +264,7 @@ GAME_HTML = r"""
   --panel: #15141c;
   --muted: #aaa7b4;
   --white: #f7f4f5;
+  --chaos: 0;
 }
 
 * { box-sizing: border-box; }
@@ -269,6 +287,14 @@ button { cursor: pointer; }
   max-width: 1000px;
   margin: auto;
   padding: 24px 22px 40px;
+}
+
+/* Every page change fades in. */
+.page { animation: pageIn .5s ease both; }
+
+@keyframes pageIn {
+  from { opacity: 0; filter: blur(8px); }
+  to   { opacity: 1; filter: blur(0); }
 }
 
 .topline {
@@ -315,7 +341,18 @@ h1 {
   letter-spacing: -2.5px;
 }
 
-h1 span { color: var(--red); }
+h1 span {
+  color: var(--red);
+  display: inline-block;
+  animation: glitch 3.5s infinite;
+}
+
+@keyframes glitch {
+  0%, 92%, 100% { transform: none; text-shadow: none; }
+  93% { transform: translate(-3px, 1px); text-shadow: 3px 0 #00e5ff, -3px 0 #ff00aa; }
+  95% { transform: translate(3px, -1px); text-shadow: -3px 0 #00e5ff, 3px 0 #ff00aa; }
+  97% { transform: translate(-1px, 0); text-shadow: 2px 0 #00e5ff; }
+}
 
 .subtitle {
   max-width: 600px;
@@ -330,6 +367,9 @@ h1 span { color: var(--red); }
   border-radius: 22px;
   background: linear-gradient(145deg, #17171f, #101015);
   box-shadow: 0 20px 70px #0007;
+  /* The more questions answered, the more crooked the panel gets. */
+  transform: rotate(calc(var(--chaos) * 0.55deg));
+  transition: transform .6s ease;
 }
 
 .center { text-align: center; }
@@ -515,6 +555,17 @@ h1 span { color: var(--red); }
   font-size: clamp(25px, 5vw, 42px);
 }
 
+.traffic {
+  display: flex;
+  justify-content: center;
+}
+
+.traffic button {
+  transition: transform .15s, opacity .2s;
+}
+
+.traffic button:hover:not(:disabled) { transform: scale(1.08); }
+
 .grid9 {
   display: grid;
   grid-template-columns: repeat(3, 82px);
@@ -565,6 +616,7 @@ h1 span { color: var(--red); }
   white-space: nowrap;
   user-select: none;
   cursor: pointer;
+  transition: left .18s ease, top .18s ease;
 }
 
 .check-square {
@@ -596,7 +648,7 @@ h1 span { color: var(--red); }
 
 .score span { color: var(--red); }
 
-/* Images retain their aspect ratio. The caption sits ABOVE the GIF. */
+/* Images keep their aspect ratio. */
 .revealimg, .reactionimg {
   display: block;
   width: auto;
@@ -606,6 +658,7 @@ h1 span { color: var(--red); }
   margin: 16px auto 24px;
   border-radius: 16px;
   object-fit: contain;
+  animation: pageIn .6s ease both;
 }
 
 .reactionimg { max-height: 460px; }
@@ -617,6 +670,25 @@ h1 span { color: var(--red); }
   font-weight: 950;
   color: #fff;
   letter-spacing: -1px;
+}
+
+.loadwrap {
+  max-width: 460px;
+  margin: 26px auto 8px;
+}
+
+.loadbar {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #2b2025;
+}
+
+.loadfill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff303b, #ff8a5c);
+  transition: width .25s linear;
 }
 
 .footerline {
@@ -636,7 +708,6 @@ h1 span { color: var(--red); }
 .tile { animation: tileDrift 2.4s ease-in-out infinite; }
 .tile:nth-child(2n) { animation-delay: -.7s; }
 .tile:nth-child(3n) { animation-delay: -1.2s; }
-.verifybox { transition: left .18s ease, top .18s ease; }
 
 @media(max-width: 560px) {
   .shell { padding: 16px 12px 28px; }
@@ -682,6 +753,9 @@ let selectedAnswer = "";
 let verificationClicks = 0;
 let pointerSpeed = 0;
 let lastPointer = { x: 0, y: 0, t: 0 };
+let questionStartedAt = 0;
+let adaptiveIntervalAdjustment = 0;
+let currentShuffleInterval = 1450;
 let captchaPending = null;
 let activeOptions = [];
 
@@ -704,20 +778,11 @@ function shuffleArray(array) {
 }
 
 function generateCaptchaPlan() {
-  // Randomly select 4–6 fake CAPTCHA rounds for each run.
-  // All remaining rounds are real. Shuffle the positions.
-  // Keep this plan fixed until the game is restarted.
+  // Each run has 4-6 fake checks; the rest are real.
   const fakeCount = 4 + Math.floor(Math.random() * 3);
-  const questionNumbers = Array.from(
-    { length: QUESTIONS.length },
-    (_, index) => index
-  );
-
+  const questionNumbers = Array.from({ length: QUESTIONS.length }, (_, index) => index);
   shuffleArray(questionNumbers);
-
-  fakeCaptchaQuestions = new Set(
-    questionNumbers.slice(0, Math.min(fakeCount, QUESTIONS.length))
-  );
+  fakeCaptchaQuestions = new Set(questionNumbers.slice(0, Math.min(fakeCount, QUESTIONS.length)));
 }
 
 function stopTimer() {
@@ -747,15 +812,14 @@ function stopSound() {
 function stopAllTimers() {
   stopTimer();
   stopShuffle();
-
   if (verifyMoveTimer !== null) clearInterval(verifyMoveTimer);
   verifyMoveTimer = null;
-
   if (captchaTimer !== null) clearInterval(captchaTimer);
   captchaTimer = null;
 }
 
-function playSound(kind, maxSeconds = 2) {
+// maxSeconds = 0 means "play the whole file".
+function playSound(kind, maxSeconds = 4) {
   stopSound();
 
   let choices = ASSETS[kind];
@@ -770,23 +834,24 @@ function playSound(kind, maxSeconds = 2) {
 
   soundAudio.play().catch(() => {});
 
-  soundStopTimer = setTimeout(stopSound, maxSeconds * 1000);
+  if (maxSeconds > 0) {
+    soundStopTimer = setTimeout(stopSound, maxSeconds * 1000);
+  }
 }
 
 function playIntroMusic() {
   stopSound();
-
   const choices = (ASSETS.intro || []).filter(Boolean);
   if (!choices.length) return;
-
-  soundAudio = new Audio(
-    choices[Math.floor(Math.random() * choices.length)]
-  );
+  soundAudio = new Audio(choices[Math.floor(Math.random() * choices.length)]);
   soundAudio.volume = 0.32;
   soundAudio.loop = false;
   soundAudio.play().catch(() => {});
-
   soundStopTimer = setTimeout(stopSound, 9000);
+}
+
+function setChaos(level) {
+  document.documentElement.style.setProperty("--chaos", String(level));
 }
 
 function shell(content) {
@@ -796,10 +861,8 @@ function shell(content) {
         <div class="brand">🔥 TRIVIA HELL</div>
         <div class="pill">PICK YOUR POISON</div>
       </div>
-      ${content}
-      <div class="footerline">
-        NO MERCY · NO PAUSE BUTTON · ONLY CHAOS
-      </div>
+      <div class="page">${content}</div>
+      <div class="footerline">NO MERCY · NO PAUSE BUTTON · ONLY CHAOS</div>
     </div>
   `;
 }
@@ -818,14 +881,16 @@ function resetGame() {
   score = 0;
   questionIndex = 0;
   remaining = 60;
+  adaptiveIntervalAdjustment = 0;
+  currentShuffleInterval = 1450;
+  questionStartedAt = 0;
   answerLocked = false;
   selectedAnswer = "";
   verificationClicks = 0;
   captchaPending = null;
   captchaSeconds = 10;
   realCaptcha = false;
-
-  // A new hidden real/fake CAPTCHA arrangement for the new run.
+  setChaos(0);
   generateCaptchaPlan();
 
   renderNamePage();
@@ -881,7 +946,6 @@ function setupNameInput() {
 
     if (event.inputType === "insertText" && event.data) {
       event.preventDefault();
-
       if (approvedName.length >= 18) return;
 
       captchaPending = {
@@ -896,7 +960,6 @@ function setupNameInput() {
       event.inputType === "deleteContentForward"
     ) {
       event.preventDefault();
-
       if (!approvedName.length) return;
 
       captchaPending = { type: "delete" };
@@ -919,7 +982,6 @@ function setupNameInput() {
 
     playerName = approvedName.trim();
     startQuestion(0, false);
-
     // This click is a user gesture, so browsers are more likely to allow audio.
     playIntroMusic();
   });
@@ -946,13 +1008,11 @@ function showTrafficCaptcha(onSuccess) {
   stopAllTimers();
   stopSound();
 
-  // Every addition/deletion gets a fresh randomly chosen required colour.
   const colours = [
     { name: "RED", value: "red", hex: "#ff3b45" },
     { name: "YELLOW", value: "yellow", hex: "#ffcc3d" },
     { name: "GREEN", value: "green", hex: "#30d878" }
   ];
-
   const required = colours[Math.floor(Math.random() * colours.length)];
 
   shell(`
@@ -962,15 +1022,12 @@ function showTrafficCaptcha(onSuccess) {
       <p class="muted">
         The system demands the following colour before it allows this character change.
       </p>
-
       <div style="font-size:13px;letter-spacing:3px;color:#ff737a;font-weight:900">
         REQUIRED SIGNAL
       </div>
-
       <div style="font-size:34px;font-weight:1000;margin:12px 0;color:${required.hex}">
         ${required.name}
       </div>
-
       <div class="traffic" style="gap:16px;margin:22px auto">
         ${colours.map(colour => `
           <button type="button" data-colour="${colour.value}"
@@ -980,7 +1037,6 @@ function showTrafficCaptcha(onSuccess) {
           </button>
         `).join("")}
       </div>
-
       <p id="trafficStatus" class="muted small">
         Pick the exact colour requested by the computer.
       </p>
@@ -993,20 +1049,14 @@ function showTrafficCaptcha(onSuccess) {
 
       if (button.dataset.colour === required.value) {
         const status = document.getElementById("trafficStatus");
-
-        if (status) {
-          status.textContent = "Signal accepted. Character approved.";
-        }
-
+        if (status) status.textContent = "Signal accepted. Character approved.";
         document.querySelectorAll("[data-colour]").forEach(item => {
           item.disabled = true;
           item.style.opacity = item === button ? "1" : ".3";
         });
-
         setTimeout(() => {
           if (currentPage === "nameCaptcha") onSuccess();
         }, 250);
-
         return;
       }
 
@@ -1015,27 +1065,21 @@ function showTrafficCaptcha(onSuccess) {
       playerName = "";
       captchaPending = null;
       stopAllTimers();
-
       const status = document.getElementById("trafficStatus");
-
       if (status) {
-        status.textContent =
-          "WRONG SIGNAL. YOUR ENTIRE NAME HAS BEEN ERASED.";
+        status.textContent = "WRONG SIGNAL. YOUR ENTIRE NAME HAS BEEN ERASED.";
         status.style.color = "#ff303b";
         status.style.fontWeight = "900";
       }
-
       document.querySelectorAll("[data-colour]").forEach(item => {
         item.disabled = true;
       });
-
       setTimeout(() => {
         if (currentPage === "nameCaptcha") renderNamePage();
       }, 1100);
     });
   });
 }
-
 
 // ============================================================
 // QUESTION AND TIMER
@@ -1045,7 +1089,6 @@ function startQuestion(index, addBonus) {
   stopAllTimers();
   stopSound();
 
-  // Correct answers grant +5 seconds, capped at 60 seconds.
   if (addBonus) remaining = Math.min(60, remaining + 5);
 
   if (remaining <= 0) {
@@ -1054,10 +1097,12 @@ function startQuestion(index, addBonus) {
   }
 
   questionIndex = index;
+  questionStartedAt = Date.now();
   answerLocked = false;
   selectedAnswer = "";
   verificationClicks = 0;
   currentPage = "question";
+  setChaos(index / (QUESTIONS.length - 1));
 
   renderQuestion();
   startQuestionTimer();
@@ -1112,12 +1157,10 @@ function renderQuestion() {
           ${escapeHtml(question.category)}
           · QUESTION ${questionIndex + 1} / ${QUESTIONS.length}
         </div>
-
         <div class="muted small" style="margin-top:6px">
           Player: ${escapeHtml(playerName)}
         </div>
       </div>
-
       <div class="time" id="timeLabel">${remaining}s</div>
     </div>
 
@@ -1165,69 +1208,72 @@ function bindOptionButtons() {
   });
 }
 
+function getShuffleInterval() {
+  // Start slow, then ramp up gently from Q1 to Q10.
+  const progression = Math.min(questionIndex, QUESTIONS.length - 1);
+  const questionRamp = progression * 48;
+  const baseInterval = 1500 - questionRamp;
+
+  currentShuffleInterval = Math.max(
+    820,
+    Math.min(1750, baseInterval + adaptiveIntervalAdjustment)
+  );
+  return currentShuffleInterval;
+}
+
 function startOptionShuffle() {
   stopShuffle();
-
   const container = document.getElementById("options");
   if (!container) return;
-
   placeOptions(true);
 
   function cycle() {
     if (currentPage !== "question" || answerLocked) return;
-
     placeOptions(false);
-
-    const urgency = 1 - Math.min(remaining, 60) / 60;
-    const speedBonus = Math.min(pointerSpeed * 0.25, 160);
-    const interval = Math.max(360, 920 - urgency * 420 - speedBonus);
-
+    const interval = getShuffleInterval();
     shuffleTimer = setTimeout(cycle, interval);
   }
 
-  shuffleTimer = setTimeout(cycle, 650);
+  shuffleTimer = setTimeout(cycle, getShuffleInterval());
+}
+
+function adaptDifficultyToAnswerTime() {
+  if (!questionStartedAt) return;
+
+  const answerSeconds = (Date.now() - questionStartedAt) / 1000;
+
+  if (answerSeconds <= 4) {
+    adaptiveIntervalAdjustment = Math.max(-180, adaptiveIntervalAdjustment - 35);
+  } else if (answerSeconds >= 10) {
+    adaptiveIntervalAdjustment = Math.min(220, adaptiveIntervalAdjustment + 70);
+  } else if (answerSeconds >= 7) {
+    adaptiveIntervalAdjustment = Math.min(220, adaptiveIntervalAdjustment + 25);
+  }
 }
 
 function placeOptions(initial = false) {
   if (currentPage !== "question" || answerLocked) return;
-
   const container = document.getElementById("options");
   if (!container) return;
-
   const buttons = [...container.querySelectorAll("[data-option]")];
   const width = container.clientWidth;
   const height = container.clientHeight;
   const mobile = window.matchMedia("(max-width: 560px)").matches;
-
   buttons.forEach((button, index) => {
-    const bw = button.offsetWidth ||
-      Math.max(120, width * (mobile ? 0.96 : 0.48));
-
+    const bw = button.offsetWidth || Math.max(120, width * (mobile ? 0.96 : 0.48));
     const bh = button.offsetHeight || 82;
     const maxX = Math.max(0, width - bw - 4);
     const maxY = Math.max(0, height - bh - 4);
-
     let x = 0, y = 0, attempts = 0;
-
-    // Random positions across the playfield; avoid exact overlaps when possible.
     do {
       x = Math.random() * maxX;
       y = Math.random() * maxY;
       attempts++;
-    } while (
-      !initial &&
-      attempts < 14 &&
-      buttons.some((other, otherIndex) => {
-        if (otherIndex >= index || !other.dataset.posx) return false;
-
-        const ox = Number(other.dataset.posx);
-        const oy = Number(other.dataset.posy);
-
-        return Math.abs(x - ox) < bw * 0.58 &&
-          Math.abs(y - oy) < bh * 0.78;
-      })
-    );
-
+    } while (!initial && attempts < 14 && buttons.some((other, otherIndex) => {
+      if (otherIndex >= index || !other.dataset.posx) return false;
+      const ox = Number(other.dataset.posx), oy = Number(other.dataset.posy);
+      return Math.abs(x - ox) < bw * 0.58 && Math.abs(y - oy) < bh * 0.78;
+    }));
     button.style.left = `${x}px`;
     button.style.top = `${y}px`;
     button.dataset.posx = String(x);
@@ -1237,32 +1283,23 @@ function placeOptions(initial = false) {
 
 // The answers also dodge when the pointer gets close, not just on a timer.
 let lastDodgeAt = 0;
-
 document.addEventListener("pointermove", event => {
   if (currentPage !== "question" || answerLocked) return;
-
   const now = performance.now();
-  if (now - lastDodgeAt < 260) return;
-
+  const dodgeCooldown = Math.max(600, getShuffleInterval() * 0.72);
+  if (now - lastDodgeAt < dodgeCooldown) return;
   const buttons = [...document.querySelectorAll("#options [data-option]")];
-
   const near = buttons.some(button => {
     const rect = button.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-
     return Math.hypot(event.clientX - cx, event.clientY - cy) < 85;
   });
-
   if (near) {
     lastDodgeAt = now;
     placeOptions(false);
   }
 });
-
-function shuffleOptions() {
-  placeOptions(false);
-}
 
 document.addEventListener("pointermove", event => {
   const now = performance.now();
@@ -1271,7 +1308,6 @@ document.addEventListener("pointermove", event => {
     const dx = event.clientX - lastPointer.x;
     const dy = event.clientY - lastPointer.y;
     const elapsed = Math.max(1, now - lastPointer.t);
-
     pointerSpeed = Math.min(
       450,
       Math.sqrt(dx * dx + dy * dy) / elapsed * 12
@@ -1293,10 +1329,10 @@ document.addEventListener("pointermove", event => {
 function lockAnswer(answer, selectedButton) {
   if (answerLocked || currentPage !== "question") return;
 
+  adaptDifficultyToAnswerTime();
   answerLocked = true;
   selectedAnswer = answer;
 
-  // Stop the trivia timer during CAPTCHA.
   stopTimer();
   stopShuffle();
 
@@ -1316,24 +1352,18 @@ function renderMovingVerification() {
   currentPage = "verification";
   verificationClicks = 0;
   captchaSeconds = 10;
-
-  // The current question number is zero-indexed.
-  // If it exists in fakeCaptchaQuestions, it is fake; otherwise it is real.
   realCaptcha = !fakeCaptchaQuestions.has(questionIndex);
 
   shell(`
     <section class="panel center">
       <div class="eyebrow">HUMAN VERIFICATION REQUIRED</div>
       <h2 class="challenge-title">Catch the checkbox.</h2>
-      <p class="muted">
-        Complete verification within 10 seconds to continue.
-      </p>
+      <p class="muted">Complete verification within 10 seconds to continue.</p>
 
       <div class="statrow" style="max-width:440px;margin:18px auto">
         <span class="muted small">CAPTCHA TIME REMAINING</span>
         <span class="time" id="captchaTime">10s</span>
       </div>
-
       <div class="progressline" style="max-width:440px;margin:0 auto 20px">
         <div id="captchaFill" class="progressfill" style="width:100%"></div>
       </div>
@@ -1345,21 +1375,16 @@ function renderMovingVerification() {
         </div>
       </div>
 
-      <p id="verifyStatus" class="muted small">
-        Click the checkbox to verify.
-      </p>
+      <p id="verifyStatus" class="muted small">Click the checkbox to verify.</p>
     </section>
   `);
 
   moveVerifyBox();
-
-  // Identical movement speed prevents the type being revealed by speed.
+  // Same movement speed for real and fake checks.
   startVerifyDrift("verification", 850);
 
   const box = document.getElementById("verifyBox");
-
   box.addEventListener("click", verificationClick);
-
   box.addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -1375,55 +1400,39 @@ function renderMovingVerification() {
     }
 
     captchaSeconds = Math.max(0, captchaSeconds - 1);
-
     const label = document.getElementById("captchaTime");
     const fill = document.getElementById("captchaFill");
-
     if (label) {
       label.textContent = `${captchaSeconds}s`;
       label.classList.toggle("urgent", captchaSeconds <= 3);
     }
-
     if (fill) fill.style.width = `${captchaSeconds * 10}%`;
 
     if (captchaSeconds <= 0) {
       if (captchaTimer !== null) clearInterval(captchaTimer);
       captchaTimer = null;
-
       if (verifyMoveTimer !== null) clearInterval(verifyMoveTimer);
       verifyMoveTimer = null;
 
       if (realCaptcha) {
         currentPage = "captchaFailed";
-
         shell(`
           <section class="panel center">
             <div class="eyebrow">HUMAN CHECK FAILED</div>
             <div class="resultmark">⏱️</div>
             <h2 class="challenge-title">You didn't catch it in time.</h2>
-            <p class="muted">
-              Your run has been reset. Back to Question 1.
-            </p>
-            <button id="captchaRetry" class="primary">
-              RESTART FROM THE BEGINNING
-            </button>
+            <p class="muted">Your run has been reset. Back to Question 1.</p>
+            <button id="captchaRetry" class="primary">RESTART FROM THE BEGINNING</button>
           </section>
         `);
-
-        document.getElementById("captchaRetry").addEventListener(
-          "click",
-          resetGame
-        );
-
+        document.getElementById("captchaRetry").addEventListener("click", resetGame);
         setTimeout(() => {
           if (currentPage === "captchaFailed") resetGame();
         }, 1800);
       } else {
-        // Fake checks automatically pass when their 10-second timer expires.
+        // Fake checks always pass when their scare timer expires.
         const status = document.getElementById("verifyStatus");
-
         if (status) status.textContent = "Verification accepted.";
-
         setTimeout(revealLockedAnswer, 350);
       }
     }
@@ -1433,26 +1442,22 @@ function renderMovingVerification() {
 function moveVerifyBox() {
   const area = document.getElementById("verifyArea");
   const box = document.getElementById("verifyBox");
-
   if (!area || !box) return;
 
   const maxX = Math.max(0, area.clientWidth - box.offsetWidth - 8);
   const maxY = Math.max(0, area.clientHeight - box.offsetHeight - 8);
-
   box.style.left = `${Math.random() * maxX}px`;
   box.style.top = `${Math.random() * maxY}px`;
 }
 
 function startVerifyDrift(expectedPage, intervalMs = 950) {
   if (verifyMoveTimer !== null) clearInterval(verifyMoveTimer);
-
   verifyMoveTimer = setInterval(() => {
     if (currentPage !== expectedPage) {
       clearInterval(verifyMoveTimer);
       verifyMoveTimer = null;
       return;
     }
-
     moveVerifyBox();
   }, intervalMs);
 }
@@ -1463,9 +1468,7 @@ function verificationClick() {
   // Fake checks ignore clicks but look and move exactly like real checks.
   if (!realCaptcha) {
     const status = document.getElementById("verifyStatus");
-
-    if (status) status.textContent = "Verification pending.";
-
+    if (status) status.textContent = "Verification pending...";
     moveVerifyBox();
     return;
   }
@@ -1484,10 +1487,8 @@ function verificationClick() {
   status.textContent = "Caught! Verification accepted.";
 
   box.style.pointerEvents = "none";
-
   if (verifyMoveTimer !== null) clearInterval(verifyMoveTimer);
   verifyMoveTimer = null;
-
   if (captchaTimer !== null) clearInterval(captchaTimer);
   captchaTimer = null;
 
@@ -1505,10 +1506,10 @@ function revealLockedAnswer() {
   if (correct) {
     score++;
     renderAnswerResult(true);
-    playSound("wow", 1.5);
+    playSound("wow", 4);
   } else {
     renderAnswerResult(false);
-    playSound("wrong", 1.8);
+    playSound("wrong", 4);
   }
 }
 
@@ -1525,15 +1526,10 @@ function renderAnswerResult(correct) {
   shell(`
     <section class="panel center">
       <div class="resultmark">${correct ? "✓" : "✕"}</div>
-
-      <div class="eyebrow">
-        ${correct ? "CORRECT ANSWER" : "RUN OVER"}
-      </div>
+      <div class="eyebrow">${correct ? "CORRECT ANSWER" : "RUN OVER"}</div>
 
       <h2 class="challenge-title">
-        ${correct
-          ? "You survived that one."
-          : "The multiverse is disappointed."}
+        ${correct ? "You survived that one." : "The multiverse is disappointed."}
       </h2>
 
       <p class="muted">
@@ -1592,6 +1588,7 @@ function renderScorePage() {
   stopAllTimers();
   stopSound();
   currentPage = "score";
+  setChaos(1);
 
   shell(`
     <section class="hero">
@@ -1600,22 +1597,15 @@ function renderScorePage() {
     </section>
 
     <section class="panel center">
-      <p class="muted">
-        PLAYER: ${escapeHtml(playerName || "UNKNOWN")}
-      </p>
-
+      <p class="muted">PLAYER: ${escapeHtml(playerName || "UNKNOWN")}</p>
       <div class="score">${score}<span>/10</span></div>
       <h2>${escapeHtml(roastForScore(score))}</h2>
-
-      <p class="muted">
-        The questions are done. Unfortunately, you are not.
-      </p>
-
+      <p class="muted">The questions are done. Unfortunately, you are not.</p>
       <button id="finalVerify" class="primary">CONTINUE</button>
     </section>
   `);
 
-  if (score === 10) playSound("wow", 2.2);
+  if (score === 10) playSound("wow", 4);
 
   document.getElementById("finalVerify").addEventListener("click", () => {
     if (currentPage === "score") renderPrePrizeMeme();
@@ -1624,55 +1614,33 @@ function renderScorePage() {
 
 
 // ============================================================
-// REACTION MEME BEFORE THE PRIZE REVEAL
+// REACTION MEME BEFORE THE PRIZE REVEAL (shown only once)
 // ============================================================
 
 function renderPrePrizeMeme() {
   stopAllTimers();
   stopSound();
   currentPage = "prePrizeMeme";
-
   const reactions = ASSETS.reactions || [];
-  const reaction = reactions.length
-    ? reactions[Math.floor(Math.random() * reactions.length)]
-    : null;
-
+  const reaction = reactions.length ? reactions[Math.floor(Math.random() * reactions.length)] : null;
   const quotes = [
     "Your score has been reviewed by absolutely nobody.",
     "Please remain calm while we pretend this is a reward.",
     "You made it this far. That was your first mistake.",
     "The committee has seen enough. The committee is a toaster."
   ];
-
   const quote = quotes[Math.floor(Math.random() * quotes.length)];
-
   shell(`
     <section class="panel center">
       <div class="eyebrow">A QUICK REACTION BEFORE YOUR PRIZE</div>
-
-      <h2 class="challenge-title">
-        ${escapeHtml(playerName)}, the system has thoughts.
-      </h2>
-
+      <h2 class="challenge-title">${escapeHtml(playerName)}, the system has thoughts.</h2>
       ${reaction
-        ? `<img class="reactionimg" src="${reaction.src}"
-             alt="${escapeHtml(reaction.name)}">`
-        : `<div class="resultmark">🫠</div>
-           <p class="muted small">
-             No reaction photos detected. Check the ASSET_DATA folder.
-           </p>`
-      }
-
-      <p style="font-size:20px;font-weight:800">
-        ${escapeHtml(quote)}
-      </p>
-
-      <button id="toFinalVerify" class="primary">
-        CONTINUE TO PRIZE
-      </button>
+        ? `<img class="reactionimg" src="${reaction.src}" alt="${escapeHtml(reaction.name)}">`
+        : `<div class="resultmark">🫠</div><p class="muted small">No reaction photos detected. Check the ASSET_DATA folder.</p>`}
+      <p style="font-size:20px;font-weight:800">${escapeHtml(quote)}</p>
+      <button id="toFinalVerify" class="primary">CONTINUE TO PRIZE</button>
     </section>
   `);
-
   document.getElementById("toFinalVerify").addEventListener("click", () => {
     if (currentPage === "prePrizeMeme") renderFinalVerificationIntro();
   });
@@ -1691,9 +1659,7 @@ function renderFinalVerificationIntro() {
   shell(`
     <section class="panel center">
       <div class="eyebrow">POST-RUN REQUIREMENT</div>
-      <h2 class="challenge-title">
-        Another final human verification needed
-      </h2>
+      <h2 class="challenge-title">Another final human verification needed</h2>
       <p class="muted">One more check before we can finish.</p>
       <button id="finalContinue" class="primary">CONTINUE</button>
     </section>
@@ -1729,9 +1695,7 @@ function renderFinalVerification() {
   startVerifyDrift("finalVerification");
 
   const box = document.getElementById("verifyBox");
-
   box.addEventListener("click", finalVerificationClick);
-
   box.addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -1758,17 +1722,14 @@ function finalVerificationClick() {
   if (verificationClicks === 1) {
     setTimeout(() => {
       if (currentPage !== "finalVerification") return;
-
       box.classList.remove("done");
       square.textContent = "";
       moveVerifyBox();
     }, 180);
-
     return;
   }
 
   box.style.pointerEvents = "none";
-
   if (verifyMoveTimer !== null) clearInterval(verifyMoveTimer);
   verifyMoveTimer = null;
 
@@ -1779,7 +1740,7 @@ function finalVerificationClick() {
 
 
 // ============================================================
-// PRIZE PRANK AND DISAPPROVAL GIF
+// PRIZE PRANK
 // ============================================================
 
 function renderPrizePage() {
@@ -1790,22 +1751,69 @@ function renderPrizePage() {
     <section class="panel center">
       <div class="eyebrow">VERIFICATION COMPLETE</div>
       <h2 class="challenge-title">Your reward awaits.</h2>
-
-      <p class="muted">
-        You have earned the right to discover what comes next.
-      </p>
-
+      <p class="muted">You have earned the right to discover what comes next.</p>
       <button id="revealPrize" class="primary">REVEAL MY PRIZE</button>
     </section>
   `);
 
   document.getElementById("revealPrize").addEventListener("click", () => {
-    if (currentPage === "prize") renderPrankPage();
+    if (currentPage === "prize") renderPrizeLoading();
   });
+}
+
+// Fake loading bar that gets stuck at 99% before the prank lands.
+function renderPrizeLoading() {
+  currentPage = "prizeLoading";
+  stopAllTimers();
+
+  shell(`
+    <section class="panel center">
+      <div class="eyebrow">PREPARING YOUR PRIZE</div>
+      <h2 class="challenge-title">Unwrapping reward...</h2>
+      <div class="loadwrap">
+        <div class="loadbar"><div id="loadFill" class="loadfill"></div></div>
+        <p id="loadText" class="muted small" style="margin-top:10px">0%</p>
+      </div>
+    </section>
+  `);
+
+  const messages = [
+    "Locating prize...",
+    "Polishing prize...",
+    "Consulting the committee...",
+    "Almost there...",
+    "Stuck at 99%. Classic."
+  ];
+  let pct = 0;
+
+  captchaTimer = setInterval(() => {
+    if (currentPage !== "prizeLoading") {
+      clearInterval(captchaTimer);
+      captchaTimer = null;
+      return;
+    }
+
+    pct = Math.min(99, pct + 3 + Math.floor(Math.random() * 9));
+    const fill = document.getElementById("loadFill");
+    const text = document.getElementById("loadText");
+    if (fill) fill.style.width = pct + "%";
+    if (text) {
+      text.textContent = `${pct}% · ${messages[Math.min(messages.length - 1, Math.floor(pct / 21))]}`;
+    }
+
+    if (pct >= 99) {
+      clearInterval(captchaTimer);
+      captchaTimer = null;
+      setTimeout(() => {
+        if (currentPage === "prizeLoading") renderPrankPage();
+      }, 1500);
+    }
+  }, 280);
 }
 
 function renderPrankPage() {
   currentPage = "prank";
+  stopAllTimers();
   stopSound();
 
   shell(`
@@ -1835,7 +1843,8 @@ function renderPrankPage() {
     </section>
   `);
 
-  playSound("sad", 2.5);
+  // 0 = play the whole song, so it is no longer cut short.
+  playSound("sad", 0);
 
   document.getElementById("postCredit").addEventListener("click", () => {
     if (currentPage === "prank") renderPostCredit();
@@ -1844,17 +1853,12 @@ function renderPrankPage() {
 
 
 // ============================================================
-// POST-CREDIT REACTION IMAGE
+// POST-CREDIT SCENE (no second reaction image)
 // ============================================================
 
 function renderPostCredit() {
   currentPage = "postCredit";
-  stopSound();
-
-  const reactions = ASSETS.reactions || [];
-  const reaction = reactions.length
-    ? reactions[Math.floor(Math.random() * reactions.length)]
-    : null;
+  // No stopSound() here, so the sad song keeps playing to the end.
 
   const quotes = [
     "You passed the vibe check. The system rejected the result.",
@@ -1872,23 +1876,11 @@ function renderPostCredit() {
   shell(`
     <section class="panel center">
       <div class="eyebrow">POST-CREDIT SCENE</div>
-
       <h2 class="challenge-title">Oh, you thought we were done?</h2>
-
-      ${reaction
-        ? `<img class="reactionimg" src="${reaction.src}"
-             alt="${escapeHtml(reaction.name)}">`
-        : `<div class="resultmark">🫠</div>
-           <p class="muted small">
-             No reaction images found. Add reaction1.jpg through reaction8.jpg
-             to ASSET_DATA.
-           </p>`
-      }
-
+      <div class="resultmark">🫠</div>
       <p style="font-size:20px;font-weight:800">
         ${escapeHtml(quote)}
       </p>
-
       <button id="startAgain" class="primary">START AGAIN</button>
     </section>
   `);
@@ -1913,6 +1905,6 @@ GAME_HTML = GAME_HTML.replace("__QUESTIONS__", QUESTIONS_JSON)
 
 components.html(
     GAME_HTML,
-    height=1400,
+    height=1150,
     scrolling=True,
 )
