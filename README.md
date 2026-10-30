@@ -44,6 +44,15 @@ The answers won't stay still, the checkboxes run away, and at the end the prize 
 - A random reaction image appears once, right before the prize
 - Different sound effects for correct answers, wrong answers and the final prank
 
+## How it was built
+
+I built this project **solo**, using **Claude** (Anthropic) and **ChatGPT** (OpenAI) as AI coding assistants.
+
+- **My part:** the concept, the theme, the humour and the game flow, plus choosing the questions and picking the images and sounds. I also tested the game, fixed the asset problems, set up the repository and deployed it.
+- **AI's part:** helped write and debug the Python and JavaScript, tidy the UI, and prepare the README and pitch material.
+
+Every feature was run and tested by me before submission.
+
 ## Run it locally
 
 You need Python 3.9 or newer.
@@ -85,6 +94,7 @@ human-captcha-from-hell/
 - **Python** and **Streamlit** for the app and hosting
 - **HTML, CSS and JavaScript**, embedded in the Streamlit page, for the game logic, animations and moving elements
 - **Streamlit Community Cloud** for deployment
+- **Claude** and **ChatGPT** as AI coding assistants
 
 ## Notes
 
@@ -94,7 +104,7 @@ human-captcha-from-hell/
 
 ## Credits
 
-Designed and built solo by **Yuvraj Bhatia** (team **TheOnlyBot**) for **What The Hack?! 2.0**.
+Designed and built solo by **Yuvraj Bhatia** (team **TheOnlyBot**) for **What The Hack?! 2.0**, with AI assistance from Claude and ChatGPT.
 
 Memes, GIFs and sound effects belong to their original creators and are used here only for a non-commercial hackathon project.
 
